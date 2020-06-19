@@ -1,0 +1,6 @@
+[oDbInfo]
+oDbUser = "rec"
+oDbPwd = "qazwsx_1S"
+oDbIp = "10.120.243.4"
+oDbPort = 11521
+oDbSid = "cc"
