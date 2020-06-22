@@ -3,17 +3,17 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	"os"
-
 	"github.com/360EntSecGroup-Skylar/excelize"
 	"github.com/BurntSushi/toml"
 	_ "github.com/mattn/go-oci8"
+	"os"
 )
 
 const cfgPath string = "./config/"
 
 type cfgInfo struct {
-	Db oDbInfo `toml:"oDbInfo"`
+	Db     oDbInfo `toml:"oDbInfo"`
+	SrcSql srcSql
 }
 
 type oDbInfo struct {
@@ -24,38 +24,38 @@ type oDbInfo struct {
 	Sid  string `toml:"oDbSid"`
 }
 
+type srcSql struct {
+	Get string `toml:"getInfo"`
+}
+
+type chargActInfo struct {
+	RUT     string
+	ActCode string
+}
+
 func getODbInfo(fl string, st *cfgInfo) {
 	if _, err := toml.DecodeFile(cfgPath+fl, st); err != nil {
 		panic(err)
 	}
 }
 
-func getDbData() string {
-	if len(os.Args) != 2 {
-		fmt.Printf("ERROR: Please provide a DSN string in ONE argument:\n\n")
-		fmt.Println("Shell-Conversion into DSN string:")
-		fmt.Println("  sqlplus sys/password@tnsentry as sysdba   =>   sys/password@tnsentry?as=sysdba")
-		fmt.Println("  sqlplus / as sysdba                       =>   sys/.@?as=sysdba")
-		fmt.Println("instead of the tnsentry, you can also use the hostname of the IP.")
-		os.Exit(1)
-	}
-	os.Setenv("NLS_LANG", "")
-
-	db, err := sql.Open("oci8", os.Args[1])
+func getDbData(dsn string, querySql string, m map[string]string) {
+	db, err := sql.Open("oci8", dsn)
 	if err != nil {
-		fmt.Println(err)
-		return "connet err"
+		panic(err)
 	}
 	defer db.Close()
-	//fmt.Println()
-	var user string
-	err = db.QueryRow("select user from dual").Scan(&user)
+
+	rows, err := db.Query(querySql)
 	if err != nil {
-		fmt.Println(err)
-		return "query err"
+		panic(err)
 	}
-	fmt.Printf("Connect successfully 'as sysdba'. Current user is: %v\n\n", user)
-	return user
+
+	for rows.Next() {
+		var cai chargActInfo
+		rows.Scan(&cai.RUT, &cai.ActCode)
+		m[cai.ActCode] = cai.RUT
+	}
 }
 
 func generateExcel(databaseUser string) {
@@ -73,10 +73,16 @@ func generateExcel(databaseUser string) {
 }
 
 func main() {
-	//	dbUser := getDbData()
 	//	generateExcel(dbUser)
 
-	var usage cfgInfo
-	getODbInfo(os.Args[1], &usage)
-	fmt.Printf("dsn is : %s/%s@%s:%d/%s", usage.Db.User, usage.Db.Pwd, usage.Db.IP, usage.Db.Port, usage.Db.Sid)
+	var cfg cfgInfo
+	getODbInfo(os.Args[1], &cfg)
+	dsn := fmt.Sprintf("%s/%s@%s:%d/%s", cfg.Db.User, cfg.Db.Pwd, cfg.Db.IP, cfg.Db.Port, cfg.Db.Sid)
+	fmt.Println(dsn)
+
+	actInfo := make(map[string]string)
+	getDbData(dsn, cfg.SrcSql.Get, actInfo)
+	for k, v := range actInfo {
+		fmt.Println(k, v)
+	}
 }

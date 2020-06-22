@@ -4,3 +4,6 @@ oDbPwd = "qazwsx_1S"
 oDbIp = "10.120.243.4"
 oDbPort = 11521
 oDbSid = "cc"
+
+[srcSql]
+getInfo = "select /*+prallel(16)*/ RUT,RELA_ID from cc.WOM_RUT a where a.RELA_TYPE='A' and exists(select 1 from cc.acct b where b.ACCT_ID=a.RELA_ID and b.POSTPAID='N') and rownum<3"
