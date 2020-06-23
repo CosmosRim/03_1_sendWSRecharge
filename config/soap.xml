@@ -1,0 +1,33 @@
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://com.ztesoft.zsmart/xsd">
+    <soapenv:Header>
+        <xsd:AuthHeader>
+            <Username>NY</Username>
+            <Password>smart</Password>
+            <!--Optional:-->
+            <ChannelCode>Devetel</ChannelCode>
+        </xsd:AuthHeader>
+    </soapenv:Header>
+    <soapenv:Body>
+        <xsd:PaymentRequest><TransactionSN>0115840151600006AABA75</TransactionSN>
+            <!--Optional:-->
+            <TransactionDesc xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
+            <RUT>057388749</RUT>
+            <AccountCode>500184070001</AccountCode>
+            <!--Optional:-->
+            <ServiceNumber xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
+            <PaymentType>1</PaymentType>
+            <!--Optional:-->
+            <FolioID>2188351001</FolioID>
+            <PaymentAmount>37931600</PaymentAmount>
+            <CURRENCY>CLP</CURRENCY>
+            <PostDate>2020-03-12T09:11:32</PostDate>
+            <PaymentChannelID>202-11</PaymentChannelID>
+            <PaymentMethod>99</PaymentMethod>
+            <PaymentGatewayChannel>DEVETEL</PaymentGatewayChannel>
+            <!--Optional:-->
+            <CreditCardType xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
+            <!--Optional:-->
+            <BankCode xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
+        </xsd:PaymentRequest>
+    </soapenv:Body>
+</soapenv:Envelope>
