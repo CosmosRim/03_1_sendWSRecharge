@@ -1,3 +1,10 @@
+#path to the webService/Payment
+wsURL = "http://10.120.243.10:8080/services/CrmWebServices.CrmWebServicesHttpSoap11Endpoint/"
+
+#Y means postpaid, N means prepaid/hybird
+postPaid = "N"
+
+#information of source data
 [oDbInfo]
 oDbUser = "rec"
 oDbPwd = "qazwsx_1S"
@@ -5,7 +12,11 @@ oDbIp = "10.120.243.4"
 oDbPort = 11521
 oDbSid = "cc"
 
-[srcSql]
-getInfo = "select /*+prallel(16)*/ RUT,RELA_ID from cc.WOM_RUT a where a.RELA_TYPE='A' and exists(select 1 from cc.acct b where b.ACCT_ID=a.RELA_ID and b.POSTPAID='N') and rownum<3"
+#sql for query all information of account which need payment
+[srcSqlPreHyb]
+#getInfo = "select /*+parallel(16)*/ a.PREFIX||a.ACC_NBR from cc.subs a, cc.prod b, cc.acct c, cc.PROD_STATE d where a.SUBS_ID=b.PROD_ID and a.ACCT_ID=c.ACCT_ID and c.POSTPAID='N' and b.STATE='A' and b.PROD_STATE=d.PROD_STATE and d.PROD_STATE not in ('B') and rownum<1000"
+getInfo = "select /*+parallel(16)*/ a.PREFIX||a.ACC_NBR from cc.subs a, cc.prod b, cc.acct c, cc.PROD_STATE d where a.SUBS_ID=b.PROD_ID and a.ACCT_ID=c.ACCT_ID and c.POSTPAID='N' and b.STATE='A' and b.PROD_STATE=d.PROD_STATE and d.PROD_STATE not in ('B') and a.acc_nbr='920567006'"
 
-wsURL = "http://10.120.243.10:8080/CrmWebServices?wsdl"
+#sql for query all information of account which need payment
+[srcSqlPost]
+getInfo = "select /*+prallel(16)*/ RUT,RELA_ID from cc.WOM_RUT a where a.RELA_TYPE='A' and exists(select 1 from cc.acct b where b.ACCT_ID=a.RELA_ID and b.POSTPAID='N') and rownum<2"

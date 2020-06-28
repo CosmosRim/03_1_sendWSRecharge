@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://com.ztesoft.zsmart/xsd">
+    <soapenv:Header>
+        <xsd:AuthHeader>
+            <Username>NY</Username>
+            <Password>smart</Password>
+            <ChannelCode>Devetel</ChannelCode>
+        </xsd:AuthHeader>
+    </soapenv:Header>
+    <soapenv:Body>
+        <xsd:RechargeBO>
+            <TransactionSN>1589288094591016</TransactionSN>
+            <DealerCode>CSTEST</DealerCode>
+            <PaymentChannelID>23</PaymentChannelID>
+            <ServiceNumber>56423452123</ServiceNumber>
+            <AccountCode xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
+            <AcctResCode xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
+            <AddBalance>-100000000</AddBalance>
+            <AddDays xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
+            <OperationStaff xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
+            <InactiveDuration xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"/>
+        </xsd:RechargeBO>
+    </soapenv:Body>
+</soapenv:Envelope>

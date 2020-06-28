@@ -17,9 +17,10 @@ import (
 const cfgPath string = "./config/"
 
 type cfgInfo struct {
-	Db     oDbInfo `toml:"oDbInfo"`
-	SrcSql srcSql
-	WsURL  string
+	WSURL        string
+	Db           oDbInfo `toml:"oDbInfo"`
+	SrcSqlPreHyb srcSqlPreHyb
+	SrcSqlPost   srcSqlPost
 }
 type oDbInfo struct {
 	User string `toml:"oDbUser"`
@@ -28,13 +29,21 @@ type oDbInfo struct {
 	Port int    `toml:"oDbPort"`
 	Sid  string `toml:"oDbSid"`
 }
-type srcSql struct {
+type srcSqlPost struct {
+	Get string `toml:"getInfo"`
+}
+type srcSqlPreHyb struct {
 	Get string `toml:"getInfo"`
 }
 
-type chargActInfo struct {
+type chargActInfoPreHyb struct {
+	phNumb string
+}
+type chargActInfoPost struct {
+	transSN string
 	RUT     string
 	ActCode string
+	Folio   string
 }
 
 func getODbInfo(fl string, st *cfgInfo) {
@@ -60,13 +69,41 @@ func getDbData(dsn string, querySql string, m map[string]string) {
 	defer rows.Close()
 
 	for rows.Next() {
-		var cai chargActInfo
-		rows.Scan(&cai.RUT, &cai.ActCode)
-		m[cai.ActCode] = cai.RUT
+		var cai chargActInfoPreHyb
+		rows.Scan(&cai.phNumb)
+		m[cai.phNumb] = cai.phNumb
 	}
 }
 
-func ctSoap(rut string, actCode string) string {
+func ctSoapPreHyb(phNumb string) string {
+	soap := "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
+	soap += "<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:xsd=\"http://com.ztesoft.zsmart/xsd\">\n"
+	soap += "    <soapenv:Header>\n"
+	soap += "        <xsd:AuthHeader>\n"
+	soap += "            <Username>NY</Username>\n"
+	soap += "            <Password>smart</Password>\n"
+	soap += "            <ChannelCode>Devetel</ChannelCode>\n"
+	soap += "        </xsd:AuthHeader>\n"
+	soap += "    </soapenv:Header>\n"
+	soap += "    <soapenv:Body>\n"
+	soap += "        <xsd:RechargeBO>\n"
+	soap += "            <TransactionSN>1589288094591016</TransactionSN>\n"
+	soap += "            <DealerCode>JJD</DealerCode>\n"
+	soap += "            <PaymentChannelID>23</PaymentChannelID>\n"
+	soap += "            <ServiceNumber>" + phNumb + "</ServiceNumber>\n"
+	soap += "            <AccountCode/>\n"
+	soap += "            <AcctResCode/>\n"
+	soap += "            <AddBalance>-1</AddBalance>\n"
+	soap += "            <AddDays/>\n"
+	soap += "            <OperationStaff/>\n"
+	soap += "            <InactiveDuration/>\n"
+	soap += "        </xsd:RechargeBO>\n"
+	soap += "    </soapenv:Body>\n"
+	soap += "</soapenv:Envelope>\n"
+	return soap
+}
+
+func ctSoapPost(transSN string, rut string, actCode string, folio string) string {
 	soap := "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
 	soap += "<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:xsd=\"http://com.ztesoft.zsmart/xsd\">\n"
 	soap += "    <soapenv:Header>\n"
@@ -78,7 +115,7 @@ func ctSoap(rut string, actCode string) string {
 	soap += "        </xsd:AuthHeader>\n"
 	soap += "    </soapenv:Header>\n"
 	soap += "    <soapenv:Body>\n"
-	soap += "        <xsd:PaymentRequest><TransactionSN>0115840151600006AABA75</TransactionSN>\n"
+	soap += "        <xsd:PaymentRequest><TransactionSN>" + transSN + "</TransactionSN>\n"
 	soap += "            <!--Optional:-->\n"
 	soap += "            <TransactionDesc xsi:nil=\"true\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"/>\n"
 	soap += "            <RUT>" + rut + "</RUT>\n"
@@ -87,7 +124,7 @@ func ctSoap(rut string, actCode string) string {
 	soap += "            <ServiceNumber xsi:nil=\"true\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"/>\n"
 	soap += "            <PaymentType>1</PaymentType>\n"
 	soap += "            <!--Optional:-->\n"
-	soap += "            <FolioID>2188351001</FolioID>\n"
+	soap += "            <FolioID>" + folio + "</FolioID>\n"
 	soap += "            <PaymentAmount>12580</PaymentAmount>\n"
 	soap += "            <CURRENCY>CLP</CURRENCY>\n"
 	soap += "            <PostDate>2020-06-18T12:34:56</PostDate>\n"
@@ -125,37 +162,46 @@ func main() {
 	getODbInfo(os.Args[1], &cfg)
 	dsn := fmt.Sprintf("%s/%s@%s:%d/%s", cfg.Db.User, cfg.Db.Pwd, cfg.Db.IP, cfg.Db.Port, cfg.Db.Sid)
 	fmt.Println(dsn)
+	fmt.Println(cfg.WSURL)
 
 	actInfo := make(map[string]string)
-	getDbData(dsn, cfg.SrcSql.Get, actInfo)
+	getDbData(dsn, cfg.SrcSqlPreHyb.Get, actInfo)
 
-	var wg sync.WaitGroup
+	wg := &sync.WaitGroup{}
+	limiter := make(chan bool, 20)
 	for k, v := range actInfo {
 		wg.Add(1)
-		soapWS := ctSoap(v, k)
-		actId := k
+		soapWS := ctSoapPreHyb(v)
+		phNum := k
+		limiter <- true
 		go func() {
 			defer wg.Done()
-			res, err := http.Post(cfg.WsURL, "text/xml; charset=UTF-8", strings.NewReader(soapWS))
+			res, err := http.Post(cfg.WSURL, "text/xml; charset=UTF-8", strings.NewReader(soapWS))
 			if err != nil {
-				fmt.Printf("[error] act: %s, http post err: %s\n", actId, err)
-				runtime.Goexit()
-			}
-
-			if res.StatusCode != http.StatusOK {
-				fmt.Printf("[error] act: %s, webService request failed, status is: %s\n", actId, res.StatusCode)
+				//fmt.Printf("[error] act: %s, http post err: %s\n", phNum, err)
+				fmt.Printf("[error] phNum: %s, http post err: %s\n", phNum, err)
 				runtime.Goexit()
 			}
 
 			data, err := ioutil.ReadAll(res.Body)
 			if err != nil {
-				fmt.Printf("[error] act: %s, ioutil readAll err: %s\n", actId, err)
+				//fmt.Printf("[error] act: %s, ioutil readAll err: %s\n", phNum, err)
+				fmt.Printf("[error] phNum: %s, ioutil readAll err: %s\n", phNum, err)
 				runtime.Goexit()
 			}
 
-			fmt.Printf("[succeed] act: %s, webService response: %s\n", actId, string(data))
+			if res.StatusCode != http.StatusOK {
+				//fmt.Printf("[error] act: %s, webService request failed, status is: %d\n", phNum, res.StatusCode)
+				fmt.Printf("[error] phNum: %s, webService request failed, status is: %d. >>Response body is: %s",
+					phNum, res.StatusCode, string(data))
+				runtime.Goexit()
+			}
+
+			//fmt.Printf("[succeed] act: %s, webService response: %s\n", phNum, string(data))
+			fmt.Printf("[succeed] phNum: %s, webService response: %s\n", phNum, string(data))
 
 			res.Body.Close()
+			<-limiter
 			runtime.Goexit()
 		}()
 	}

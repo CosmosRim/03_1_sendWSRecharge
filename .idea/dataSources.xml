@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="DataSourceManagerImpl" format="xml" multifile-model="true">
+    <data-source source="LOCAL" name="rec_rec_243.4" uuid="14614746-5d4e-4e99-9850-af152f9f5586">
+      <driver-ref>oracle</driver-ref>
+      <synchronize>true</synchronize>
+      <remarks>rec/qazwsx_1S@10.120.243.4:11521/cc</remarks>
+      <auto-commit>false</auto-commit>
+      <jdbc-driver>oracle.jdbc.OracleDriver</jdbc-driver>
+      <jdbc-url>jdbc:oracle:thin:@10.120.243.4:11521:cc</jdbc-url>
+    </data-source>
+    <data-source source="LOCAL" name="rec_cc_243.4" uuid="6014ddc0-4dfd-4309-82ca-45ab0b075b33">
+      <driver-ref>oracle</driver-ref>
+      <synchronize>true</synchronize>
+      <remarks>cc/Zsmart*2018@10.120.243.4:11521/cc</remarks>
+      <auto-commit>false</auto-commit>
+      <jdbc-driver>oracle.jdbc.OracleDriver</jdbc-driver>
+      <jdbc-url>jdbc:oracle:thin:@10.120.243.4:11521:cc</jdbc-url>
+    </data-source>
+    <data-source source="LOCAL" name="mig_rec_244.99" uuid="a902ef60-321f-4597-8444-f9147f9b0499">
+      <driver-ref>oracle</driver-ref>
+      <synchronize>true</synchronize>
+      <remarks>rec/rec@10.120.244.99:11521/cc</remarks>
+      <auto-commit>false</auto-commit>
+      <jdbc-driver>oracle.jdbc.OracleDriver</jdbc-driver>
+      <jdbc-url>jdbc:oracle:thin:@10.120.244.99:11521:cc</jdbc-url>
+    </data-source>
+    <data-source source="LOCAL" name="mig_mig_244.99" uuid="09320797-118a-4320-ac6e-2e8fac0bcaa3">
+      <driver-ref>oracle</driver-ref>
+      <synchronize>true</synchronize>
+      <remarks>mig/Zsmart*2018@10.120.244.99:11521/cc</remarks>
+      <auto-commit>false</auto-commit>
+      <jdbc-driver>oracle.jdbc.OracleDriver</jdbc-driver>
+      <jdbc-url>jdbc:oracle:thin:@10.120.244.99:11521:cc</jdbc-url>
+    </data-source>
+    <data-source source="LOCAL" name="rec_crm_243.4" uuid="0431f89d-fc18-4138-9ee0-5fa413660712">
+      <driver-ref>oracle</driver-ref>
+      <synchronize>true</synchronize>
+      <remarks>crm/Zsmart*2018@10.120.243.4:11521/cc</remarks>
+      <auto-commit>false</auto-commit>
+      <jdbc-driver>oracle.jdbc.OracleDriver</jdbc-driver>
+      <jdbc-url>jdbc:oracle:thin:@10.120.243.4:11521:cc</jdbc-url>
+    </data-source>
+  </component>
+</project>
