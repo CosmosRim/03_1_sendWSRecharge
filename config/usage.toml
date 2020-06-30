@@ -14,8 +14,8 @@ oDbSid = "cc"
 
 #sql for query all information of account which need payment
 [srcSqlPreHyb]
-#getInfo = "select /*+parallel(16)*/ a.PREFIX||a.ACC_NBR from cc.subs a, cc.prod b, cc.acct c, cc.PROD_STATE d where a.SUBS_ID=b.PROD_ID and a.ACCT_ID=c.ACCT_ID and c.POSTPAID='N' and b.STATE='A' and b.PROD_STATE=d.PROD_STATE and d.PROD_STATE not in ('B') and rownum<1000"
-getInfo = "select /*+parallel(16)*/ a.PREFIX||a.ACC_NBR from cc.subs a, cc.prod b, cc.acct c, cc.PROD_STATE d where a.SUBS_ID=b.PROD_ID and a.ACCT_ID=c.ACCT_ID and c.POSTPAID='N' and b.STATE='A' and b.PROD_STATE=d.PROD_STATE and d.PROD_STATE not in ('B') and a.acc_nbr='920567006'"
+#getInfo = "select /*+parallel(16)*/ a.PREFIX||a.ACC_NBR from cc.subs a, cc.prod b, cc.acct c, cc.PROD_STATE d where a.SUBS_ID=b.PROD_ID and a.ACCT_ID=c.ACCT_ID and c.POSTPAID='N' and b.STATE='A' and b.PROD_STATE=d.PROD_STATE and d.PROD_STATE not in ('B') and a.acc_nbr='920567006'"
+getInfo = "select /*+parallel(16)*/ a.PREFIX||a.ACC_NBR from cc.subs a, cc.prod b, cc.acct c, cc.PROD_STATE d where a.SUBS_ID=b.PROD_ID and a.ACCT_ID=c.ACCT_ID and c.POSTPAID='N' and b.STATE='A' and b.PROD_STATE=d.PROD_STATE and d.PROD_STATE not in ('B') and subs_id<368000"
 
 #sql for query all information of account which need payment
 [srcSqlPost]

@@ -7,6 +7,7 @@ import (
 	"github.com/BurntSushi/toml"
 	_ "github.com/mattn/go-oci8"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 	"runtime"
@@ -58,7 +59,7 @@ func getDbData(dsn string, querySql string, m map[string]string) {
 		panic(err)
 	}
 	if db == nil {
-		fmt.Println("db is nil")
+		log.Println("db is nil")
 	}
 	defer db.Close()
 
@@ -151,24 +152,40 @@ func generateExcel(databaseUser string) {
 	f.SetActiveSheet(index)
 
 	if err := f.SaveAs("first.xlsx"); err != nil {
-		fmt.Println(err)
+		log.Println(err)
 	}
 }
 
 func main() {
 	//	generateExcel(dbUser)
 
+	//craete log file and start a log object
+	logFileName := "./log/WS.log"
+	if _, err := os.Stat(logFileName); err == nil {
+		log.Println("Remove exists old log file: " + logFileName)
+		os.Remove(logFileName)
+	}
+
+	logFile, err := os.Create(logFileName)
+	defer logFile.Close()
+	if err != nil {
+		log.Fatalf("Create log file with error: %s", err)
+	}
+
+	logOb := log.New(logFile, "", log.LstdFlags)
+
 	var cfg cfgInfo
 	getODbInfo(os.Args[1], &cfg)
 	dsn := fmt.Sprintf("%s/%s@%s:%d/%s", cfg.Db.User, cfg.Db.Pwd, cfg.Db.IP, cfg.Db.Port, cfg.Db.Sid)
-	fmt.Println(dsn)
-	fmt.Println(cfg.WSURL)
+	logOb.Println("warming engine...")
+	logOb.Println("dsn is: " + dsn)
+	logOb.Println("webService URL is: " + cfg.WSURL)
 
 	actInfo := make(map[string]string)
 	getDbData(dsn, cfg.SrcSqlPreHyb.Get, actInfo)
 
 	wg := &sync.WaitGroup{}
-	limiter := make(chan bool, 20)
+	limiter := make(chan bool, 40)
 	for k, v := range actInfo {
 		wg.Add(1)
 		soapWS := ctSoapPreHyb(v)
@@ -178,27 +195,27 @@ func main() {
 			defer wg.Done()
 			res, err := http.Post(cfg.WSURL, "text/xml; charset=UTF-8", strings.NewReader(soapWS))
 			if err != nil {
-				//fmt.Printf("[error] act: %s, http post err: %s\n", phNum, err)
-				fmt.Printf("[error] phNum: %s, http post err: %s\n", phNum, err)
+				//logOb.Printf("[error] act: %s, http post err: %s\n", phNum, err)
+				logOb.Printf("[error] phNum: %s, http post err: %s\n", phNum, err)
 				runtime.Goexit()
 			}
 
 			data, err := ioutil.ReadAll(res.Body)
 			if err != nil {
-				//fmt.Printf("[error] act: %s, ioutil readAll err: %s\n", phNum, err)
-				fmt.Printf("[error] phNum: %s, ioutil readAll err: %s\n", phNum, err)
+				//logOb.Printf("[error] act: %s, ioutil readAll err: %s\n", phNum, err)
+				logOb.Printf("[error] phNum: %s, ioutil readAll err: %s\n", phNum, err)
 				runtime.Goexit()
 			}
 
 			if res.StatusCode != http.StatusOK {
-				//fmt.Printf("[error] act: %s, webService request failed, status is: %d\n", phNum, res.StatusCode)
-				fmt.Printf("[error] phNum: %s, webService request failed, status is: %d. >>Response body is: %s",
+				//logOb.Printf("[error] act: %s, webService request failed, status is: %d\n", phNum, res.StatusCode)
+				logOb.Printf("[error] phNum: %s, webService request failed, status is: %d. >>Response body is: %s",
 					phNum, res.StatusCode, string(data))
 				runtime.Goexit()
 			}
 
-			//fmt.Printf("[succeed] act: %s, webService response: %s\n", phNum, string(data))
-			fmt.Printf("[succeed] phNum: %s, webService response: %s\n", phNum, string(data))
+			//logOb.Printf("[succeed] act: %s, webService response: %s\n", phNum, string(data))
+			logOb.Printf("[succeed] phNum: %s, webService response: %s\n", phNum, string(data))
 
 			res.Body.Close()
 			<-limiter
@@ -208,5 +225,5 @@ func main() {
 
 	wg.Wait()
 
-	fmt.Println("all finished.")
+	logOb.Println("all finished.")
 }
