@@ -16,6 +16,7 @@ import (
 )
 
 const cfgPath string = "./config/"
+const logPath string = "./log/"
 
 type cfgInfo struct {
 	WSURL        string
@@ -34,11 +35,13 @@ type srcSqlPost struct {
 	Get string `toml:"getInfo"`
 }
 type srcSqlPreHyb struct {
-	Get string `toml:"getInfo"`
+	GetNum  string
+	GetInfo string
 }
 
 type chargActInfoPreHyb struct {
 	phNumb string
+	chgAmt string
 }
 type chargActInfoPost struct {
 	transSN string
@@ -53,7 +56,7 @@ func getODbInfo(fl string, st *cfgInfo) {
 	}
 }
 
-func getDbData(dsn string, querySql string, m map[string]string) {
+func getDbNum(dsn string, querySql string) uint32 {
 	db, err := sql.Open("oci8", dsn)
 	if err != nil {
 		panic(err)
@@ -69,14 +72,38 @@ func getDbData(dsn string, querySql string, m map[string]string) {
 	}
 	defer rows.Close()
 
+	var i uint32
 	for rows.Next() {
-		var cai chargActInfoPreHyb
-		rows.Scan(&cai.phNumb)
-		m[cai.phNumb] = cai.phNumb
+		rows.Scan(&i)
+	}
+	return i
+}
+func getDbData(dsn string, querySql string, s []chargActInfoPreHyb) {
+	db, err := sql.Open("oci8", dsn)
+	if err != nil {
+		panic(err)
+	}
+	if db == nil {
+		log.Println("db is nil")
+	}
+	defer db.Close()
+
+	rows, err := db.Query(querySql)
+	if err != nil {
+		panic(err)
+	}
+	defer rows.Close()
+
+	var i uint32
+	for rows.Next() {
+		var caip chargActInfoPreHyb
+		rows.Scan(&caip.phNumb, &caip.chgAmt)
+		s[i] = caip
+		i++
 	}
 }
 
-func ctSoapPreHyb(phNumb string) string {
+func ctSoapPreHyb(phNumb string, chgAmt string) string {
 	soap := "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
 	soap += "<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:xsd=\"http://com.ztesoft.zsmart/xsd\">\n"
 	soap += "    <soapenv:Header>\n"
@@ -94,7 +121,7 @@ func ctSoapPreHyb(phNumb string) string {
 	soap += "            <ServiceNumber>" + phNumb + "</ServiceNumber>\n"
 	soap += "            <AccountCode/>\n"
 	soap += "            <AcctResCode/>\n"
-	soap += "            <AddBalance>-1</AddBalance>\n"
+	soap += "            <AddBalance>" + chgAmt + "</AddBalance>\n"
 	soap += "            <AddDays/>\n"
 	soap += "            <OperationStaff/>\n"
 	soap += "            <InactiveDuration/>\n"
@@ -160,7 +187,7 @@ func main() {
 	//	generateExcel(dbUser)
 
 	//craete log file and start a log object
-	logFileName := "./log/WS.log"
+	logFileName := logPath + "WS.log"
 	if _, err := os.Stat(logFileName); err == nil {
 		log.Println("Remove exists old log file: " + logFileName)
 		os.Remove(logFileName)
@@ -181,44 +208,44 @@ func main() {
 	logOb.Println("dsn is: " + dsn)
 	logOb.Println("webService URL is: " + cfg.WSURL)
 
-	actInfo := make(map[string]string)
-	getDbData(dsn, cfg.SrcSqlPreHyb.Get, actInfo)
+	var sliNum uint32
+	sliNum = getDbNum(dsn, cfg.SrcSqlPreHyb.GetNum)
+	logOb.Printf("Amount of recharge records: %d\n", sliNum)
+
+	actInfo := make([]chargActInfoPreHyb, sliNum)
+	getDbData(dsn, cfg.SrcSqlPreHyb.GetInfo, actInfo)
 
 	wg := &sync.WaitGroup{}
-	limiter := make(chan bool, 40)
-	for k, v := range actInfo {
+	limiter := make(chan bool, 26)
+	for _, v := range actInfo {
 		wg.Add(1)
-		soapWS := ctSoapPreHyb(v)
-		phNum := k
+		soapWS := ctSoapPreHyb(v.phNumb, v.chgAmt)
+		phNum := v.phNumb
 		limiter <- true
 		go func() {
 			defer wg.Done()
+			defer func() {<-limiter}()
 			res, err := http.Post(cfg.WSURL, "text/xml; charset=UTF-8", strings.NewReader(soapWS))
+			defer res.Body.Close()
 			if err != nil {
-				//logOb.Printf("[error] act: %s, http post err: %s\n", phNum, err)
 				logOb.Printf("[error] phNum: %s, http post err: %s\n", phNum, err)
 				runtime.Goexit()
 			}
 
 			data, err := ioutil.ReadAll(res.Body)
 			if err != nil {
-				//logOb.Printf("[error] act: %s, ioutil readAll err: %s\n", phNum, err)
 				logOb.Printf("[error] phNum: %s, ioutil readAll err: %s\n", phNum, err)
 				runtime.Goexit()
 			}
 
 			if res.StatusCode != http.StatusOK {
-				//logOb.Printf("[error] act: %s, webService request failed, status is: %d\n", phNum, res.StatusCode)
 				logOb.Printf("[error] phNum: %s, webService request failed, status is: %d. >>Response body is: %s",
 					phNum, res.StatusCode, string(data))
 				runtime.Goexit()
 			}
 
-			//logOb.Printf("[succeed] act: %s, webService response: %s\n", phNum, string(data))
 			logOb.Printf("[succeed] phNum: %s, webService response: %s\n", phNum, string(data))
 
-			res.Body.Close()
-			<-limiter
 			runtime.Goexit()
 		}()
 	}
