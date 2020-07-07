@@ -13,6 +13,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 )
 
 const cfgPath string = "./config/"
@@ -103,6 +104,11 @@ func getDbData(dsn string, querySql string, s []chargActInfoPreHyb) {
 	}
 }
 
+func addErrAct(u *uint32, s []chargActInfoPreHyb, info chargActInfoPreHyb) {
+	s[*u] = info
+	atomic.AddUint32(u, 1)
+}
+
 func ctSoapPreHyb(phNumb string, chgAmt string) string {
 	soap := "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
 	soap += "<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:xsd=\"http://com.ztesoft.zsmart/xsd\">\n"
@@ -186,6 +192,18 @@ func generateExcel(databaseUser string) {
 func main() {
 	//	generateExcel(dbUser)
 
+	//remove log folder and
+	if _, err := os.Stat(logPath); err == nil {
+		log.Println("Remove exists old folder : " + logPath)
+		os.RemoveAll(logPath)
+	}
+
+	if err := os.Mkdir(logPath, os.ModePerm); err != nil {
+		log.Println("Creaete log folder: " + logPath + " failed.")
+	} else {
+		log.Println("Creaete log folder: " + logPath + " succeed.")
+	}
+
 	//craete log file and start a log object
 	logFileName := logPath + "WS.log"
 	if _, err := os.Stat(logFileName); err == nil {
@@ -214,37 +232,52 @@ func main() {
 
 	actInfo := make([]chargActInfoPreHyb, sliNum)
 	getDbData(dsn, cfg.SrcSqlPreHyb.GetInfo, actInfo)
+	logOb.Println("Got src data, start package and post.")
+	log.Println("Got src data, start package and post.")
+
+	errActInfo := make([]chargActInfoPreHyb, sliNum)
+	var errCount uint32
 
 	wg := &sync.WaitGroup{}
+	muErrActInfo := &sync.Mutex{}
 	limiter := make(chan bool, 26)
 	for _, v := range actInfo {
 		wg.Add(1)
-		soapWS := ctSoapPreHyb(v.phNumb, v.chgAmt)
-		phNum := v.phNumb
+		value := v
+		soapWS := ctSoapPreHyb(value.phNumb, value.chgAmt)
 		limiter <- true
 		go func() {
 			defer wg.Done()
-			defer func() {<-limiter}()
+			defer func() { <-limiter }()
 			res, err := http.Post(cfg.WSURL, "text/xml; charset=UTF-8", strings.NewReader(soapWS))
 			defer res.Body.Close()
 			if err != nil {
-				logOb.Printf("[error] phNum: %s, http post err: %s\n", phNum, err)
+				muErrActInfo.Lock()
+				addErrAct(&errCount, errActInfo, value)
+				muErrActInfo.Unlock()
+				logOb.Printf("[error] phNum: %s , amt: %s , http post err: %s\n", value.phNumb, value.chgAmt, err)
 				runtime.Goexit()
 			}
 
 			data, err := ioutil.ReadAll(res.Body)
 			if err != nil {
-				logOb.Printf("[error] phNum: %s, ioutil readAll err: %s\n", phNum, err)
+				muErrActInfo.Lock()
+				addErrAct(&errCount, errActInfo, value)
+				muErrActInfo.Unlock()
+				logOb.Printf("[error] phNum: %s , amt: %s , ioutil readAll err: %s\n", value.phNumb, value.chgAmt, err)
 				runtime.Goexit()
 			}
 
 			if res.StatusCode != http.StatusOK {
-				logOb.Printf("[error] phNum: %s, webService request failed, status is: %d. >>Response body is: %s",
-					phNum, res.StatusCode, string(data))
+				muErrActInfo.Lock()
+				addErrAct(&errCount, errActInfo, value)
+				muErrActInfo.Unlock()
+				logOb.Printf("[error] phNum: %s , amt: %s , webService request failed, status is: %d. >>Response body is: %s",
+					value.phNumb, value.chgAmt, res.StatusCode, string(data))
 				runtime.Goexit()
 			}
 
-			logOb.Printf("[succeed] phNum: %s, webService response: %s\n", phNum, string(data))
+			logOb.Printf("[succeed] phNum: %s , amt: %s , webService response: %s\n", value.phNumb, value.chgAmt, string(data))
 
 			runtime.Goexit()
 		}()
@@ -252,5 +285,84 @@ func main() {
 
 	wg.Wait()
 
-	logOb.Println("all finished.")
+	logOb.Println("first batch post finished.")
+	logFile.Close()
+
+	//start to repost untill no more error bak. each batch have their own log.
+	logBatch := 1
+	for errCount > 0 {
+		errRange := errCount
+		errCount = 0
+
+		//create log file for each repost
+		logReFileName := fmt.Sprintf("%sWSRe%d.log", logPath, logBatch)
+		if _, err := os.Stat(logReFileName); err == nil {
+			log.Println("Remove exists old log file: " + logReFileName)
+			os.Remove(logReFileName)
+		}
+
+		logReFile, err := os.Create(logReFileName)
+		if err != nil {
+			log.Fatalf("Create log file with error: %s", err)
+		}
+
+		logObRe := log.New(logReFile, "", log.LstdFlags)
+
+		//repeat post till no more error bak
+		var i uint32
+		for i < errRange {
+			errActInfoI := errActInfo[i]
+			//if errActInfoI.phNumb == "" {
+			//	i++
+			//	continue
+			//}
+			soapWS := ctSoapPreHyb(errActInfoI.phNumb, errActInfoI.chgAmt)
+
+			wg.Add(1)
+			limiter <- true
+
+			go func() {
+				defer wg.Done()
+				defer func() { <-limiter }()
+				res, err := http.Post(cfg.WSURL, "text/xml; charset=UTF-8", strings.NewReader(soapWS))
+				defer res.Body.Close()
+				if err != nil {
+					muErrActInfo.Lock()
+					addErrAct(&errCount, errActInfo, errActInfoI)
+					muErrActInfo.Unlock()
+					logObRe.Printf("[error] phNum: %s , amt: %s , http post err: %s\n", errActInfoI.phNumb, errActInfoI.chgAmt, err)
+					runtime.Goexit()
+				}
+
+				data, err := ioutil.ReadAll(res.Body)
+				if err != nil {
+					muErrActInfo.Lock()
+					addErrAct(&errCount, errActInfo, errActInfoI)
+					muErrActInfo.Unlock()
+					logObRe.Printf("[error] phNum: %s , amt: %s , ioutil readAll err: %s\n", errActInfoI.phNumb, errActInfoI.chgAmt, err)
+					runtime.Goexit()
+				}
+
+				if res.StatusCode != http.StatusOK {
+					muErrActInfo.Lock()
+					addErrAct(&errCount, errActInfo, errActInfoI)
+					muErrActInfo.Unlock()
+					logObRe.Printf("[error] phNum: %s , amt: %s , webService request failed, status is: %d. >>Response body is: %s\n",
+						errActInfoI.phNumb, errActInfoI.chgAmt, res.StatusCode, string(data))
+					runtime.Goexit()
+				}
+
+				logObRe.Printf("[succeed] phNum: %s , amt: %s , webService response: %s\n", errActInfoI.phNumb, errActInfoI.chgAmt, string(data))
+				runtime.Goexit()
+			}()
+
+			i++
+		}
+		wg.Wait()
+		logObRe.Printf("WSRe%d.log finished", logBatch)
+		logReFile.Close()
+		logBatch++
+	}
+
+	log.Println("all finished.")
 }
