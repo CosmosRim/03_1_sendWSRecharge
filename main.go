@@ -312,10 +312,6 @@ func main() {
 		var i uint32
 		for i < errRange {
 			errActInfoI := errActInfo[i]
-			//if errActInfoI.phNumb == "" {
-			//	i++
-			//	continue
-			//}
 			soapWS := ctSoapPreHyb(errActInfoI.phNumb, errActInfoI.chgAmt)
 
 			wg.Add(1)
