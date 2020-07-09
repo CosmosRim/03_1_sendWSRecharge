@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"runtime"
 	"strings"
@@ -21,6 +22,7 @@ const logPath string = "./log/"
 
 type cfgInfo struct {
 	WSURL        string
+	Goroutines   uint16
 	Db           oDbInfo `toml:"oDbInfo"`
 	SrcSqlPreHyb srcSqlPreHyb
 	SrcSqlPost   srcSqlPost
@@ -190,21 +192,19 @@ func generateExcel(databaseUser string) {
 }
 
 func main() {
-	//	generateExcel(dbUser)
-
-	//remove log folder and
+	//remove log folder and create again
 	if _, err := os.Stat(logPath); err == nil {
 		log.Println("Remove exists old folder : " + logPath)
 		os.RemoveAll(logPath)
 	}
 
 	if err := os.Mkdir(logPath, os.ModePerm); err != nil {
-		log.Println("Creaete log folder: " + logPath + " failed.")
+		log.Println("Create log folder: " + logPath + " failed.")
 	} else {
-		log.Println("Creaete log folder: " + logPath + " succeed.")
+		log.Println("Create log folder: " + logPath + " succeed.")
 	}
 
-	//craete log file and start a log object
+	//create log files and start a log object
 	logFileName := logPath + "WS.log"
 	if _, err := os.Stat(logFileName); err == nil {
 		log.Println("Remove exists old log file: " + logFileName)
@@ -225,6 +225,7 @@ func main() {
 	logOb.Println("warming engine...")
 	logOb.Println("dsn is: " + dsn)
 	logOb.Println("webService URL is: " + cfg.WSURL)
+	logOb.Printf("goroutines are: %d\n", cfg.Goroutines)
 
 	var sliNum uint32
 	sliNum = getDbNum(dsn, cfg.SrcSqlPreHyb.GetNum)
@@ -238,9 +239,14 @@ func main() {
 	errActInfo := make([]chargActInfoPreHyb, sliNum)
 	var errCount uint32
 
+	go func() {
+		log.Println("pprof start")
+		fmt.Println(http.ListenAndServe(":12610", nil))
+	}()
+
 	wg := &sync.WaitGroup{}
 	muErrActInfo := &sync.Mutex{}
-	limiter := make(chan bool, 26)
+	limiter := make(chan bool, cfg.Goroutines)
 	for _, v := range actInfo {
 		wg.Add(1)
 		value := v
