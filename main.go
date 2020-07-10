@@ -212,10 +212,10 @@ func main() {
 	}
 
 	logFile, err := os.Create(logFileName)
-	defer logFile.Close()
 	if err != nil {
 		log.Fatalf("Create log file with error: %s", err)
 	}
+	defer logFile.Close()
 
 	logOb := log.New(logFile, "", log.LstdFlags)
 
@@ -256,7 +256,6 @@ func main() {
 			defer wg.Done()
 			defer func() { <-limiter }()
 			res, err := http.Post(cfg.WSURL, "text/xml; charset=UTF-8", strings.NewReader(soapWS))
-			defer res.Body.Close()
 			if err != nil {
 				muErrActInfo.Lock()
 				addErrAct(&errCount, errActInfo, value)
@@ -264,6 +263,7 @@ func main() {
 				logOb.Printf("[error] phNum: %s , amt: %s , http post err: %s\n", value.phNumb, value.chgAmt, err)
 				runtime.Goexit()
 			}
+			defer res.Body.Close()
 
 			data, err := ioutil.ReadAll(res.Body)
 			if err != nil {
@@ -327,7 +327,6 @@ func main() {
 				defer wg.Done()
 				defer func() { <-limiter }()
 				res, err := http.Post(cfg.WSURL, "text/xml; charset=UTF-8", strings.NewReader(soapWS))
-				defer res.Body.Close()
 				if err != nil {
 					muErrActInfo.Lock()
 					addErrAct(&errCount, errActInfo, errActInfoI)
@@ -335,6 +334,7 @@ func main() {
 					logObRe.Printf("[error] phNum: %s , amt: %s , http post err: %s\n", errActInfoI.phNumb, errActInfoI.chgAmt, err)
 					runtime.Goexit()
 				}
+				defer res.Body.Close()
 
 				data, err := ioutil.ReadAll(res.Body)
 				if err != nil {
