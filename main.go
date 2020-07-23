@@ -296,12 +296,12 @@ func main() {
 
 	//start to repost untill no more error bak. each batch have their own log.
 	logBatch := 1
-	for errCount > 0 {
+	for errCount > 0 && logBatch < 100 {
 		errRange := errCount
 		errCount = 0
 
 		//create log file for each repost
-		logReFileName := fmt.Sprintf("%sWSRe%d.log", logPath, logBatch)
+		logReFileName := fmt.Sprintf("%sWSRe%02d.log", logPath, logBatch)
 		if _, err := os.Stat(logReFileName); err == nil {
 			log.Println("Remove exists old log file: " + logReFileName)
 			os.Remove(logReFileName)
