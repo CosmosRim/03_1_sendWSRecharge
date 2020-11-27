@@ -125,7 +125,7 @@ func ctSoapPreHyb(phNumb string, chgAmt string) string {
 	soap += "        <xsd:RechargeBO>\n"
 	soap += "            <TransactionSN>1589288094591016</TransactionSN>\n"
 	soap += "            <DealerCode>JJD</DealerCode>\n"
-	soap += "            <PaymentChannelID>23</PaymentChannelID>\n"
+	soap += "            <PaymentChannelID>28</PaymentChannelID>\n"
 	soap += "            <ServiceNumber>" + phNumb + "</ServiceNumber>\n"
 	soap += "            <AccountCode/>\n"
 	soap += "            <AcctResCode/>\n"
