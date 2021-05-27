@@ -1,16 +1,16 @@
 #path to the webService/Payment
-wsURL = "http://10.120.243.10:8080/services/CrmWebServices.CrmWebServicesHttpSoap11Endpoint/"
+wsURL = "http://127.0.0.1:8080/services/CrmWebServices.CrmWebServicesHttpSoap11Endpoint/"
 
 #numbers of goroutines, recharge offen 50tps/server, ipp offen 10tps/server
 goroutines = 80
 
 #information of source data
 [oDbInfo]
-oDbUser = "rec"
-oDbPwd = "qazwsx_1S"
-oDbIp = "10.120.243.4"
-oDbPort = 11521
-oDbSid = "cc"
+oDbUser = "zhuyu"
+oDbPwd = "zhuyu"
+oDbIp = "127..0.0.1"
+oDbPort = 49161 
+oDbSid = "xe"
 
 #sql for query all information of account which need payment
 [srcSqlPreHyb]

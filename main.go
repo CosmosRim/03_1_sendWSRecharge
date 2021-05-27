@@ -3,9 +3,6 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	"github.com/360EntSecGroup-Skylar/excelize"
-	"github.com/BurntSushi/toml"
-	_ "github.com/mattn/go-oci8"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -15,6 +12,10 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+
+	"github.com/360EntSecGroup-Skylar/excelize"
+	"github.com/BurntSushi/toml"
+	_ "github.com/mattn/go-oci8"
 )
 
 const cfgPath string = "./config/"
@@ -24,8 +25,8 @@ type cfgInfo struct {
 	WSURL        string
 	Goroutines   uint16
 	Db           oDbInfo `toml:"oDbInfo"`
-	SrcSqlPreHyb srcSqlPreHyb
-	SrcSqlPost   srcSqlPost
+	SrcSQLPreHyb srcSQLPreHyb
+	SrcSQLPost   srcSQLPost
 }
 type oDbInfo struct {
 	User string `toml:"oDbUser"`
@@ -34,10 +35,10 @@ type oDbInfo struct {
 	Port int    `toml:"oDbPort"`
 	Sid  string `toml:"oDbSid"`
 }
-type srcSqlPost struct {
+type srcSQLPost struct {
 	Get string `toml:"getInfo"`
 }
-type srcSqlPreHyb struct {
+type srcSQLPreHyb struct {
 	GetNum  string
 	GetInfo string
 }
@@ -59,7 +60,7 @@ func getODbInfo(fl string, st *cfgInfo) {
 	}
 }
 
-func getDbNum(dsn string, querySql string) uint32 {
+func getDbNum(dsn string, querySQL string) uint32 {
 	db, err := sql.Open("oci8", dsn)
 	if err != nil {
 		panic(err)
@@ -69,7 +70,7 @@ func getDbNum(dsn string, querySql string) uint32 {
 	}
 	defer db.Close()
 
-	rows, err := db.Query(querySql)
+	rows, err := db.Query(querySQL)
 	if err != nil {
 		panic(err)
 	}
@@ -81,7 +82,7 @@ func getDbNum(dsn string, querySql string) uint32 {
 	}
 	return i
 }
-func getDbData(dsn string, querySql string, s []chargActInfoPreHyb) {
+func getDbData(dsn string, querySQL string, s []chargActInfoPreHyb) {
 	db, err := sql.Open("oci8", dsn)
 	if err != nil {
 		panic(err)
@@ -91,7 +92,7 @@ func getDbData(dsn string, querySql string, s []chargActInfoPreHyb) {
 	}
 	defer db.Close()
 
-	rows, err := db.Query(querySql)
+	rows, err := db.Query(querySQL)
 	if err != nil {
 		panic(err)
 	}
@@ -228,11 +229,11 @@ func main() {
 	logOb.Printf("goroutines are: %d\n", cfg.Goroutines)
 
 	var sliNum uint32
-	sliNum = getDbNum(dsn, cfg.SrcSqlPreHyb.GetNum)
+	sliNum = getDbNum(dsn, cfg.SrcSQLPreHyb.GetNum)
 	logOb.Printf("Amount of recharge records: %d\n", sliNum)
 
 	actInfo := make([]chargActInfoPreHyb, sliNum)
-	getDbData(dsn, cfg.SrcSqlPreHyb.GetInfo, actInfo)
+	getDbData(dsn, cfg.SrcSQLPreHyb.GetInfo, actInfo)
 	logOb.Println("Got src data, start package and post.")
 	log.Println("Got src data, start package and post.")
 
